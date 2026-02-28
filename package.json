@@ -1,0 +1,21 @@
+{
+  "name": "predictarb-bnb-hack-2025",
+  "version": "1.0.0",
+  "private": true,
+  "description": "PredictArb end-to-end PoC for BNB Hack Bengaluru 2025",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:bsc": "hardhat run scripts/deploy.js --network bscTestnet",
+    "deploy:opbnb": "hardhat run scripts/deploy.js --network opbnbTestnet",
+    "verify": "hardhat run scripts/verify.js --network bscTestnet"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "dotenv": "^16.4.5",
+    "hardhat": "^2.22.10"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.9.6"
+  }
+}

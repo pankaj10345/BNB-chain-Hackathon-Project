@@ -1,0 +1,30 @@
+# Node
+node_modules/
+.next/
+out/
+dist/
+coverage/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Env
+.env
+.env.local
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+
+# Build artifacts
+artifacts/
+cache/
+typechain-types/
+frontend/.next/
+frontend/out/
+backend/node_modules/

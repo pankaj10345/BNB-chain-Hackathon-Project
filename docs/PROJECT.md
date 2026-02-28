@@ -1,48 +1,63 @@
-# Project: Problem, Solution & Impact
-
-One place for the **what** and **why** of your project. Replace the headings below with your content.
-
-**Tip:** Use [Mermaid](https://mermaid.js.org/) diagrams in this doc to illustrate user journeys, value flows, or problem→solution flow. GitHub and most docs render Mermaid in fenced code blocks with ` ```mermaid `.
-
----
+# PredictArb: Problem, Solution & Impact
 
 ## 1. Problem
 
-- What specific problem are you solving?
-- Who is affected (users, ecosystem, developers)?
-- Why does it matter? (Impact, evidence, or context.)
+Prediction markets on BNB Chain are fragmented across multiple platforms.
+The same event can trade at different implied probabilities at the same time, creating temporary inefficiencies.
 
----
+Key pain points:
+
+- No unified cross-platform price view for BSC prediction markets.
+- Human traders cannot monitor all markets continuously.
+- Arbitrage windows close quickly.
+- Idle capital sits unproductive when no trade exists.
 
 ## 2. Solution
 
-- High-level approach: how does your solution address the problem?
-- Key features or capabilities.
-- Why this approach works and how it differs from alternatives.
+PredictArb is an autonomous arbitrage system with three coordinated layers:
 
-**Optional — user journey (Mermaid):** A diagram helps judges see the flow at a glance. Example:
+- Off-chain AI scanner + detector to identify profitable opportunities.
+- On-chain contracts to enforce execution and safety guarantees.
+- Yield management logic to rotate idle capital into higher-APY venues.
+
+### Core strategies
+
+- `DELTA_NEUTRAL`: buy opposing outcomes across two markets when the spread is large enough.
+- `YIELD_ROTATION`: move idle funds toward best active APY source.
 
 ```mermaid
 flowchart LR
-    A[User] --> B[Action 1]
-    B --> C[Action 2]
-    C --> D[Outcome]
+    A[Multi-market prices] --> B[AI Opportunity Detector]
+    B --> C[Strategy Engine]
+    C --> D[ArbExecutor.sol]
+    C --> E[YieldVault.sol]
+    D --> F[Profit + Trade Events]
+    E --> G[Capital Efficiency]
 ```
-
-Replace with your own steps (e.g. Connect wallet → Deposit → Earn → Withdraw). You can use `flowchart`, `journey`, or `sequenceDiagram` depending on what you want to show.
-
----
 
 ## 3. Business & Ecosystem Impact
 
-- Target users and adoption path.
-- Value to the ecosystem (chain, developers, users).
-- Monetization or sustainability (if applicable).
+- Increases market efficiency by narrowing mispricing windows.
+- Provides a vault model for passive users to participate in arbitrage + yield.
+- Demonstrates BSC + opBNB architecture for low-cost, high-frequency automation.
 
----
+Revenue model (POC assumptions):
+
+- Performance fee on profitable arbitrage trades.
+- Management fee on vault AUM.
+- Potential signal/API product for integrators.
 
 ## 4. Limitations & Future Work
 
-- Current limitations and known risks or assumptions.
-- Short-term and longer-term roadmap.
-- Open questions or next validations.
+Current limitations:
+
+- Mock data fallback is enabled for offline demos.
+- No production-grade key management included in this repo.
+- Market integrations are adapter-stubbed and need protocol-specific implementations.
+
+Planned next steps:
+
+1. Replace mock market endpoints with production adapters.
+2. Add private mempool / MEV-aware routing.
+3. Move from heuristic fallback to regularly retrained models.
+4. Add role-based multisig and timelock governance.

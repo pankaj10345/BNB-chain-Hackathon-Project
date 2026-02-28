@@ -1,86 +1,148 @@
-# Technical: Architecture, Setup & Demo
-
-One place for **how** the system works and how to run and use it. Replace the sections below with your content.
-
-**Tip:** Use [Mermaid](https://mermaid.js.org/) to draw architecture, data flow, and user flows. GitHub and most doc platforms render Mermaid in fenced code blocks with ` ```mermaid `.
-
----
+# PredictArb Technical Guide
 
 ## 1. Architecture
 
-- **System overview** — High-level description of the full system.
-- **Components** — Frontend, backend, smart contracts (or equivalent); how they connect.
-- **Data flow** — How data moves through the system step-by-step.
-- **On-chain vs off-chain** — What runs on-chain vs off-chain (if applicable).
-- **Security** — Main risks and how you mitigate them.
+### 1.1 System overview
 
-**Optional — component diagram (Mermaid):** Example of a high-level system view:
+PredictArb runs as a hybrid system:
+
+- Solidity contracts on BSC/opBNB for capital and execution.
+- Python daemon for scanning, inference, and transaction dispatch.
+- Node backend + WebSocket bridge for real-time monitoring.
+- Next.js dashboard for visibility and demo UX.
 
 ```mermaid
 flowchart TB
-    subgraph Frontend
-        UI[Web / Mobile App]
+    subgraph Offchain
+        S[price_scanner.py]
+        D[opportunity_detector.py]
+        G[strategy_engine.py]
+        X[executor.py]
     end
-    subgraph Backend
-        API[API Server]
+
+    subgraph Onchain
+        AE[ArbExecutor.sol]
+        YV[YieldVault.sol]
+        PO[PriceOracle.sol]
     end
-    subgraph Chain
-        SC[Smart Contracts]
+
+    subgraph App
+        API[backend/src/server.js]
+        UI[frontend/app/page.js]
     end
-    UI --> API
-    API --> SC
-    SC --> API
+
+    S --> D --> G --> X --> AE
+    G --> YV
+    PO --> D
+    AE --> API
+    YV --> API
+    API --> UI
 ```
 
-**Optional — data flow (Mermaid):** For step-by-step flows, a sequence diagram works well:
+### 1.2 Contract responsibilities
 
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant F as Frontend
-    participant B as Backend
-    participant C as Contract
-    U->>F: action
-    F->>B: request
-    B->>C: tx
-    C-->>B: result
-    B-->>F: response
-    F-->>U: update
+- `ArbExecutor.sol`
+  - owner-only execution path
+  - market allowlist
+  - min-profit checks
+  - pause/unpause controls
+- `YieldVault.sol`
+  - share accounting for deposits/withdrawals
+  - APY source registry
+  - rebalancing to best source
+- `PriceOracle.sol`
+  - trusted reporter model
+  - freshness window checks
+  - cross-platform gap computation
+
+### 1.3 Agent responsibilities
+
+- `price_scanner.py`: polls market sources (with offline mock fallback).
+- `opportunity_detector.py`: scores gaps (model if available, otherwise heuristic).
+- `strategy_engine.py`: optional OpenAI model to pick strategy.
+- `executor.py`: builds/sends txs (or simulates when `DRY_RUN=true`).
+- `main.py`: orchestrates scanner + trading loop.
+
+## 2. Setup & Run (One-by-One)
+
+### 2.1 Prerequisites
+
+- Node.js 20+
+- Python 3.11+
+- Redis 7+
+
+### 2.2 Install dependencies
+
+```bash
+cp .env.example .env
+npm install
+pip install -r requirements.txt
+cd backend && npm install && cd ..
+cd frontend && npm install && cd ..
 ```
 
-Replace nodes and labels with your actual components and flow.
+### 2.3 Configure environment
 
----
+Edit `.env`:
 
-## 2. Setup & Run
+- `BSC_RPC`, `OPBNB_RPC`
+- `AGENT_PRIVATE_KEY`
+- `BSCSCAN_API_KEY`
+- `OPENAI_API_KEY` (optional)
+- contract addresses after deployment
 
-- **Prerequisites** — Required tools, versions, accounts (e.g. Node 18+, MetaMask, testnet faucet).
-- **Environment** — Env vars, API keys, endpoints (use `.env.example` if needed).
-- **Install & build** — Commands to install dependencies and build.
-- **Run** — How to start each part (e.g. backend, contracts, frontend) and in what order.
-- **Verify** — How to confirm it works (e.g. tests, open URL, run a script).
+### 2.4 Compile and test contracts
 
----
+```bash
+npm run compile
+npm test
+```
+
+### 2.5 Deploy contracts
+
+```bash
+npm run deploy:bsc
+# optional
+npm run deploy:opbnb
+```
+
+Deployment artifact is written to `.deployments/<network>.json`.
+Copy addresses into `bsc.address`.
+
+### 2.6 Start runtime services
+
+Terminal 1:
+```bash
+cd backend && npm run dev
+```
+
+Terminal 2:
+```bash
+cd frontend && npm run dev
+```
+
+Terminal 3:
+```bash
+python -m agent.main
+```
+
+### 2.7 Verify system health
+
+- API health: `http://localhost:8080/api/health`
+- UI: `http://localhost:3001` (or `http://localhost:$PORT` if overridden)
+- Live stream: `ws://localhost:8080/live`
 
 ## 3. Demo Guide
 
-- **Access** — How to open the app (URL, local run, or testnet link).
-- **User flow** — Step-by-step for a typical user.
-- **Key actions** — Main things to try (e.g. connect wallet, create item, stake).
-- **Expected outcomes** — What the user should see at each step.
-- **Troubleshooting** — Common issues (wrong network, test tokens, etc.) and fixes.
+1. Start Redis.
+2. Start backend, frontend, and agent.
+3. Open dashboard and watch opportunities stream in.
+4. Observe status transitions (`scanning` -> `trading` / `yield`).
+5. Review generated transactions in live log.
 
-**Optional — demo user journey (Mermaid):** A small diagram makes the flow easy for judges to follow:
+## 4. Security Notes
 
-```mermaid
-journey
-    title Demo flow
-    section Connect
-      Open app: 5: User
-      Connect wallet: 5: User
-    section Use
-      Do main action: 5: User
-      See result: 5: User
-```
-
-Or use a `flowchart` with your real steps. This complements the written steps above.
+- Contracts include pause switches and owner-gated sensitive actions.
+- Profit floor prevents low-quality executions.
+- Agent is `DRY_RUN=true` by default for safer local testing.
+- Production deployment should use HSM/KMS and multisig ownership.

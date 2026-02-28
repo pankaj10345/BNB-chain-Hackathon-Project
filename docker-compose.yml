@@ -1,0 +1,48 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: predictarb-redis
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: predictarb-backend
+    env_file:
+      - .env
+    environment:
+      API_PORT: "8080"
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - redis
+    ports:
+      - "18080:8080"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE: http://localhost:18080
+    container_name: predictarb-frontend
+    environment:
+      PORT: "3000"
+    depends_on:
+      - backend
+    ports:
+      - "3100:3000"
+
+  agent:
+    build:
+      context: .
+      dockerfile: agent/Dockerfile
+    container_name: predictarb-agent
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      AGENT_PRIVATE_KEY: ""
+      OPENAI_API_KEY: ""
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-mini}
+    depends_on:
+      - redis
