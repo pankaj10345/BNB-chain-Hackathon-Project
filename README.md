@@ -2,383 +2,14 @@
 
 AI-powered autonomous arbitrage and capital-allocation system for prediction markets on BNB Chain.
 
-This README is intentionally a long-form, 10-page-equivalent project document so you can share one file instead of a PPT.
-
 - Track: `AI Arbitrage Agent (1.2)`
 - Networks: `BSC Testnet (97)`, `opBNB Testnet (5611)`
 - Core stack: Solidity + Python + Node.js + Next.js + Redis
 - Repo type: Hackathon MVP with production-oriented architecture
 
----
+<img width="1512" height="895" alt="image" src="https://github.com/user-attachments/assets/0a6e1cf8-bb41-4730-8208-1da5b2912a20" />
 
-## Page 1: Executive Summary
 
-PredictArb is a full-stack system that continuously scans fragmented prediction markets, detects cross-platform mispricing, decides a strategy, and executes actions with explicit risk controls.
-
-The core thesis is straightforward: when different platforms price the same outcome differently at the same moment, a spread exists. If the spread is wide enough after costs, that spread can be converted into profit. If the spread is weak, capital should not stay idle and should be rotated into better yield opportunities.
-
-PredictArb combines these two modes:
-
-- `DELTA_NEUTRAL`: exploit strong price dislocations with controlled execution.
-- `YIELD_ROTATION`: allocate capital to yield when arbitrage quality is low.
-
-This makes PredictArb more practical than a simple trade bot. Traditional bots stop producing value when opportunities disappear. PredictArb is designed to keep capital productive through changing market conditions.
-
-From a hackathon perspective, the project demonstrates end-to-end delivery rather than isolated components:
-
-- On-chain contracts for enforceable constraints and asset controls.
-- Off-chain intelligence for fast scanning and scoring.
-- API + WebSocket backend for real-time state distribution.
-- Frontend dashboard for observability and operator trust.
-
-The result is an autonomous loop:
-
-`detect -> score -> decide -> execute/simulate -> observe -> repeat`
-
----
-
-## Page 2: Problem and Market Context
-
-Prediction markets are structurally fragmented. The same event can appear across multiple venues with different liquidity profiles, user bases, fee structures, and update latency. As a result, implied probabilities can diverge temporarily.
-
-### Why this matters
-
-If Platform A prices an outcome at 54% and Platform B prices the same outcome at 65%, that divergence can represent an exploitable inefficiency if:
-
-- execution is fast,
-- position sizing is disciplined,
-- confidence is high enough,
-- and total expected return remains positive after gas and slippage assumptions.
-
-### Why humans underperform in this setting
-
-Manual traders face four structural constraints:
-
-1. They cannot monitor all relevant venues 24/7.
-2. Opportunity windows collapse quickly.
-3. Manual decision and transaction latency is high.
-4. Idle periods degrade annualized performance.
-
-### System requirement that emerges
-
-A practical system must provide:
-
-- continuous scanning,
-- normalized opportunity scoring,
-- strategy switching based on market quality,
-- execution safeguards,
-- and visible telemetry for auditability.
-
-PredictArb is built around these requirements.
-
----
-
-## Page 3: Product Vision and Scope
-
-PredictArb is not positioned as a single algorithm. It is positioned as an operating layer for automated market-efficiency actions in prediction markets.
-
-### Product goals
-
-- Convert fragmented pricing into structured opportunities.
-- Improve capital efficiency across active and inactive phases.
-- Enforce non-negotiable risk controls on-chain.
-- Maintain deterministic behavior even when optional AI components are unavailable.
-
-### Current scope in this repository
-
-Implemented now:
-
-- `ArbExecutor.sol`, `YieldVault.sol`, `PriceOracle.sol`
-- Python agent loop (`price_scanner`, `opportunity_detector`, `strategy_engine`, `executor`, `main`)
-- Node backend (`/api/status`, `/api/opportunities`, `/api/transactions`, `/live`)
-- Next.js frontend widgets for opportunities, status, transactions, and yield allocation
-- Hardhat tests for contracts
-
-### Honest MVP boundaries
-
-- Market adapters include mock/offline fallback for reliable demos.
-- `DRY_RUN=true` by default to prevent accidental live execution.
-- Production key custody, routing, and governance are intentionally staged for later hardening.
-
-This scope is intentional: prove architecture and behavior first, then productionize.
-
----
-
-## Page 4: Architecture Overview
-
-PredictArb uses a hybrid architecture with clear separation of responsibilities.
-
-### Off-chain intelligence layer (Python)
-
-- `agent/price_scanner.py`
-- `agent/opportunity_detector.py`
-- `agent/strategy_engine.py`
-- `agent/executor.py`
-- `agent/main.py`
-
-Responsibilities:
-
-- Collect market snapshots.
-- Build comparable cross-platform views.
-- Score opportunity quality.
-- Decide strategy.
-- Dispatch simulated or live action.
-
-### On-chain enforcement layer (Solidity)
-
-- `contracts/ArbExecutor.sol`
-- `contracts/YieldVault.sol`
-- `contracts/PriceOracle.sol`
-
-Responsibilities:
-
-- Enforce execution permissions and safety checks.
-- Manage pooled capital and yield source rotation.
-- Maintain trusted, fresh oracle signals.
-
-### Product and observability layer
-
-- `backend/src/server.js` and related modules
-- `frontend/app/page.js` + components
-
-Responsibilities:
-
-- Publish runtime state and opportunities.
-- Stream live activity over WebSocket.
-- Provide visual monitoring for operators, reviewers, and judges.
-
-### High-level data flow
-
-1. Scanner ingests market data.
-2. Detector computes spread and expected profitability.
-3. Strategy engine selects `DELTA_NEUTRAL` or `YIELD_ROTATION`.
-4. Executor performs dry-run or on-chain execution.
-5. Backend and UI expose real-time outcomes.
-
----
-
-## Page 5: Smart Contract Design
-
-Smart contracts in PredictArb are not passive storage. They encode execution policy and capital rules.
-
-### `ArbExecutor.sol`
-
-Primary controls include:
-
-- owner-gated sensitive execution path,
-- market allowlist constraints,
-- minimum profit guardrails,
-- pause/unpause controls for emergency handling.
-
-Design rationale:
-
-- Critical safety logic should be verifiable on-chain.
-- Off-chain agent bugs should not automatically lead to unrestricted execution.
-
-### `YieldVault.sol`
-
-Core responsibilities:
-
-- pooled deposit/withdraw accounting,
-- share logic for participant balances,
-- APY source registry,
-- rebalance actions toward best configured source.
-
-Design rationale:
-
-- Capital should remain productive even when arbitrage frequency drops.
-
-### `PriceOracle.sol`
-
-Core responsibilities:
-
-- trusted reporter model,
-- data freshness checks,
-- cross-platform gap support.
-
-Design rationale:
-
-- stale or invalid inputs can destroy strategy quality.
-- freshness windows are mandatory for robust automated decisioning.
-
-### Contract safety posture
-
-- Explicit owner checks
-- Guardrails before execution
-- Operational pause switch
-
-This is the minimum acceptable baseline for automated capital movement systems.
-
----
-
-## Page 6: AI Agent and Decisioning
-
-The agent is a continuous loop that attempts to maximize expected value while honoring risk thresholds.
-
-### `price_scanner.py`
-
-- Polls configured market sources.
-- Writes snapshots to Redis with TTL.
-- Includes deterministic synthetic fallback for offline/demo continuity.
-
-### `opportunity_detector.py`
-
-- Loads model if available (`MODEL_PATH`).
-- Falls back to heuristic confidence if model missing/unavailable.
-- Finds overlapping markets across platforms.
-- Computes:
-  - `gap_bps`
-  - `gross_profit`
-  - `net_profit` (after gas assumption)
-  - confidence score
-
-Default selection logic includes:
-
-- reject if `net_profit <= 0`
-- reject if confidence below `MIN_CONFIDENCE`
-- classify strategy as `DELTA_NEUTRAL` for stronger gaps, else `YIELD_ROTATION`
-
-### `strategy_engine.py`
-
-- Optional OpenAI model integration if `OPENAI_API_KEY` is set.
-- Strict JSON response expectation for machine-consumable strategy outputs.
-- Deterministic fallback if API unavailable or malformed response occurs.
-
-### `executor.py`
-
-- `DRY_RUN=true` returns simulated tx result.
-- Live mode builds and sends transaction via configured signer and executor contract.
-
-This hybrid (AI + deterministic fallback) design prioritizes reliability over novelty.
-
----
-
-## Page 7: Backend, Frontend, and Operations
-
-### Backend service
-
-Located in `backend/`.
-
-Provides:
-
-- `GET /api/status`
-- `GET /api/opportunities`
-- `GET /api/transactions`
-- WebSocket: `/live`
-
-Purpose:
-
-- expose machine-readable system state,
-- serve historical and near-real-time context,
-- feed the dashboard and operator workflows.
-
-### Frontend dashboard
-
-Located in `frontend/`.
-
-Primary UI modules:
-
-- `ArbMonitor.jsx`
-- `AgentStatus.jsx`
-- `TransactionLog.jsx`
-- `YieldTracker.jsx`
-
-Purpose:
-
-- visualize opportunities and system mode,
-- show trade/simulation events,
-- present allocation and PnL direction signals,
-- improve trust via observability.
-
-### Local runbook
-
-1. Prepare env and dependencies.
-2. Compile/test contracts.
-3. Start backend and frontend.
-4. Run Python agent.
-5. Open UI and verify state transitions.
-
-This supports both demo mode and iterative engineering.
-
----
-
-## Page 8: Security, Risk, and Reliability
-
-PredictArb includes explicit safeguards for an MVP, but should be presented honestly as pre-production.
-
-### Current safeguards
-
-- On-chain execution checks and pause controls.
-- Profit floor gates to avoid low-quality actions.
-- Dry-run default mode in agent execution path.
-- Heuristic fallback when model and/or external AI is unavailable.
-
-### Risk dimensions considered
-
-- stale oracle or market data,
-- overtrading on low-confidence signals,
-- key misuse in live mode,
-- strategy drift under changing market microstructure.
-
-### Required hardening before production
-
-1. KMS/HSM signer custody.
-2. Private mempool / MEV-aware routing.
-3. Protocol-specific adapters with better slippage/liquidity modeling.
-4. Role-based governance (`multisig + timelock`) for privileged contract operations.
-5. Enhanced telemetry, alerting, and incident runbooks.
-
-The architecture is compatible with these upgrades without major redesign.
-
----
-
-## Page 9: Business Model and Ecosystem Value
-
-PredictArb can evolve from hackathon MVP to revenue-generating product in multiple forms.
-
-### Value delivered
-
-- Better market efficiency via narrower cross-platform mispricing.
-- Better capital efficiency via arbitrage + yield dual engine.
-- Better operational transparency via live observability stack.
-
-### Monetization paths
-
-- performance fee on profitable arbitrage cycles,
-- management fee on vault AUM,
-- B2B data/signal APIs for external integrators.
-
-### Moat vectors
-
-- execution quality under latency pressure,
-- superior opportunity ranking and risk filtering,
-- wider venue and protocol integrations,
-- stronger reliability and governance posture.
-
-### Why this matters for BNB ecosystem
-
-- Demonstrates advanced, practical automation use cases.
-- Encourages more efficient price discovery across venues.
-- Provides blueprint for AI-assisted DeFi infrastructure products.
-
----
-
-## Page 10: Roadmap, Milestones, and Setup
-
-### Near-term engineering roadmap
-
-1. Replace mock feeds with production market adapters.
-2. Expand confidence scoring with retrained models and richer features.
-3. Add MEV-aware execution strategy and transaction protection.
-4. Implement multisig/timelock ownership and operational policies.
-5. Build deeper analytics: hit-rate, PnL attribution, drawdown windows, and confidence calibration.
-
-### Suggested milestone gates
-
-- **M1 (Functional):** stable end-to-end loop with deterministic fallback.
-- **M2 (Safety):** complete key-management and governance hardening.
-- **M3 (Performance):** improve real net returns after gas/slippage.
-- **M4 (Scale):** add venues, pairs, and API productization.
 
 ### Quick start (current repo)
 
@@ -462,6 +93,270 @@ Key variables from `.env` / `agent/settings.py` include:
 
 ---
 
-## License
 
-MIT
+
+---
+
+## System architecture (how the code connects)
+
+PredictArb is a hybrid system with clear separation of responsibilities:
+
+### 1) Off-chain intelligence (Python agent)
+Responsible for:
+- collecting market snapshots,
+- building comparable cross-platform views,
+- scoring opportunity quality,
+- selecting strategy,
+- dispatching simulated or live execution.
+
+Key files:
+- `agent/price_scanner.py`
+- `agent/opportunity_detector.py`
+- `agent/strategy_engine.py`
+- `agent/executor.py`
+- `agent/main.py`
+
+### 2) On-chain enforcement (Solidity)
+Responsible for:
+- enforcing execution permissions and guardrails,
+- managing pooled capital and yield rotation,
+- ensuring oracle inputs are fresh/trusted.
+
+Key files:
+- `contracts/ArbExecutor.sol`
+- `contracts/YieldVault.sol`
+- `contracts/PriceOracle.sol`
+
+### 3) Product + observability (Backend + Frontend)
+Responsible for:
+- publishing runtime state and opportunities,
+- streaming live events,
+- providing an operator/judge dashboard for auditability.
+
+Backend:
+- `backend/src/server.js`
+- endpoints: `/api/status`, `/api/opportunities`, `/api/transactions`
+- websocket: `/live`
+
+Frontend:
+- `frontend/app/page.js` + `frontend/components/*`
+
+---
+
+## High-level data flow
+
+1. **Scanner** ingests market data from configured sources.
+2. **Detector** computes gap and expected profitability.
+3. **Strategy engine** selects `DELTA_NEUTRAL` (stronger gaps) or `YIELD_ROTATION` (when arb quality is weak).
+4. **Executor** performs `DRY_RUN` simulation or sends on-chain tx.
+5. **Backend + UI** expose real-time state, opportunities, and tx/sim logs.
+
+---
+
+## Contracts (Solidity): what each does
+
+### `ArbExecutor.sol`
+Purpose: encode execution policy and safety checks on-chain.
+
+Typical controls:
+- **owner-gated sensitive execution**
+- **market allowlist constraints**
+- **minimum profit guardrails**
+- **pause/unpause** emergency switch
+
+Why it exists:
+- critical safety logic should be verifiable on-chain,
+- off-chain agent bugs should not imply unrestricted execution.
+
+---
+
+### `YieldVault.sol`
+Purpose: keep capital productive during low-arbitrage periods.
+
+Core responsibilities:
+- pooled deposit/withdraw accounting,
+- share math for participant balances,
+- APY source registry,
+- rebalance/rotate capital toward best configured yield source.
+
+Why it exists:
+- when arb frequency drops, idle capital kills annualized performance,
+- yield rotation provides a “fallback engine” for capital efficiency.
+
+---
+
+### `PriceOracle.sol`
+Purpose: ensure strategy decisions rely on **fresh, trusted signals**.
+
+Core responsibilities:
+- trusted reporter model (who can post updates),
+- freshness checks (reject stale data),
+- cross-platform gap support for comparisons.
+
+Why it exists:
+- stale inputs can destroy strategy quality,
+- freshness windows are mandatory for robust automation.
+
+---
+
+## Python agent: what each module does
+
+### `agent/price_scanner.py`
+Purpose: collect price snapshots from sources and store them for the detector.
+
+Behavior:
+- polls configured market sources,
+- writes snapshots to **Redis** with a TTL,
+- includes deterministic synthetic fallback for offline/demo continuity.
+
+Outputs (typical):
+- per-market snapshots with timestamp, platform id, implied probability, liquidity metadata (if available).
+
+---
+
+### `agent/opportunity_detector.py`
+Purpose: compute opportunities from snapshots, including profitability and confidence.
+
+Behavior:
+- loads ML model if available (`MODEL_PATH`),
+- falls back to heuristic confidence if model missing/unavailable,
+- finds overlapping markets across platforms,
+- computes:
+  - `gap_bps` (basis-point divergence)
+  - `gross_profit`
+  - `net_profit` (after gas/slippage assumptions)
+  - `confidence`
+
+Default filtering:
+- reject if `net_profit <= 0`
+- reject if `confidence < MIN_CONFIDENCE`
+
+Strategy classification (default):
+- strong/high-quality gaps → `DELTA_NEUTRAL`
+- weaker conditions → `YIELD_ROTATION`
+
+---
+
+### `agent/strategy_engine.py`
+Purpose: choose an action plan and size safely.
+
+Behavior:
+- can optionally use OpenAI if `OPENAI_API_KEY` is set,
+- expects **strict JSON** output (machine-consumable),
+- if API unavailable or response malformed → deterministic fallback.
+
+Design goal:
+- optional AI should *improve* decisions, never block execution logic.
+
+---
+
+### `agent/executor.py`
+Purpose: turn decisions into execution events.
+
+Modes:
+- `DRY_RUN=true` (default): returns simulated tx result (no chain interaction)
+- live mode: builds and sends tx via configured signer + `ArbExecutor` contract
+
+Typical safeguards:
+- checks opportunity still valid at execution time (freshness / thresholds),
+- refuses if profit/confidence constraints fail.
+
+---
+
+### `agent/main.py`
+Purpose: continuous loop orchestration.
+
+Typical loop:
+- scan → detect → decide → execute → publish telemetry → repeat
+
+---
+
+## Backend API (Node): what it exposes
+
+Located in `backend/`.
+
+### Endpoints
+- `GET /api/status`  
+  Current agent mode, last scan time, health signals.
+
+- `GET /api/opportunities`  
+  Latest ranked opportunities + scores + strategy tags.
+
+- `GET /api/transactions`  
+  Execution history: dry-run simulations and/or on-chain tx summaries.
+
+### WebSocket
+- `/live`  
+  Streams near-real-time events: new opportunities, mode switches, executions, errors.
+
+Purpose:
+- machine-readable system state,
+- historical + near-real-time context,
+- feeds the dashboard.
+
+---
+
+## Frontend dashboard (Next.js)
+
+Located in `frontend/`.
+
+Key UI modules:
+- `ArbMonitor.jsx`  
+  Opportunity table, ranking, filters, strategy label, net profitability.
+
+- `AgentStatus.jsx`  
+  Agent health, loop timing, DRY_RUN state, connected sources.
+
+- `TransactionLog.jsx`  
+  Simulated executions and/or on-chain tx feed.
+
+- `YieldTracker.jsx`  
+  Vault allocation signals + yield rotation status (when enabled).
+
+Purpose:
+- visualize opportunities and system mode,
+- improve trust via observability (operators/judges can see behavior live).
+
+---
+
+## Environment variables
+
+> Defaults are designed to be safe: **`DRY_RUN=true`**.
+
+Common variables (names may vary by implementation—see `.env.example` if present):
+
+- `DRY_RUN=true|false`  
+  If `true`, executor simulates and does not broadcast transactions.
+
+- `REDIS_URL=...`  
+  Snapshot store for scanner/detector pipeline.
+
+- `MODEL_PATH=...`  
+  Optional ML model for confidence scoring.
+
+- `MIN_CONFIDENCE=...`  
+  Minimum confidence threshold to allow execution.
+
+- `GAS_USD=...` / `GAS_BPS=...`  
+  Assumptions for net profitability calculation.
+
+- `OPENAI_API_KEY=...`  
+  Optional strategy engine enhancement (strict JSON; fallback exists).
+
+- `RPC_URL=...` / `PRIVATE_KEY=...`  
+  Live-mode chain execution (only needed when `DRY_RUN=false`).
+
+---
+
+## Local runbook (demo / development)
+
+### 1) Install dependencies
+- Python deps for agent
+- Node deps for backend
+- Node deps for frontend
+- Hardhat deps for contracts/tests
+
+### 2) Contracts: compile + test
+```bash
+npx hardhat compile
+npx hardhat test
